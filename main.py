@@ -1,9 +1,30 @@
 import os
 import asyncio
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import discord
 from discord.ext import commands
 
-# Initialize client using discord.py-self for user token support
+# Lightweight web server to satisfy Render's web service port requirement
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is online and running!")
+        
+    def log_message(self, format, *args):
+        pass # Suppress HTTP access logs to keep console clean
+
+def run_web_server():
+    port = int(os.getenv("PORT", "10000"))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
+# Start the web server in a separate background thread
+threading.Thread(target=run_web_server, daemon=True).start()
+
+# Initialize discord self-bot
 bot = commands.Bot(command_prefix="!", self_bot=True)
 
 VC_ID = int(os.getenv("VC_ID", "0"))
@@ -30,7 +51,6 @@ async def join_vc():
         except Exception as e:
             print(f"Connection error: {e}")
         
-        # Check connection status every 60 seconds
         await asyncio.sleep(60)
 
 if __name__ == "__main__":
